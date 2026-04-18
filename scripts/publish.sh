@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Convenience wrapper around the publish steps documented in PUBLISHING.md.
+# Convenience wrapper: pre-flight checks, build, then publish to PyPI.
 set -euo pipefail
 
 cd "$(dirname "$0")/.."

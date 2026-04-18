@@ -279,10 +279,6 @@ The same model also powers `audit`, `diff`, and `preview`, so you can verify wha
 
 Contributions are welcome. See [`CONTRIBUTING.md`](CONTRIBUTING.md) for local setup, tests, and development workflow.
 
-## Publishing
-
-Maintainers: see [`PUBLISHING.md`](PUBLISHING.md) for the PyPI release checklist.
-
 ## License
 
 MIT
