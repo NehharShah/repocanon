@@ -1,0 +1,10 @@
+---
+description: Module and package boundaries to respect.
+alwaysApply: true
+---
+
+# architecture-boundaries
+
+## Uncertainty
+
+- No LICENSE file detected — license intent is unclear.

@@ -1,0 +1,14 @@
+---
+description: Module and package boundaries to respect.
+alwaysApply: true
+---
+
+# architecture-boundaries
+
+## Boundaries
+
+- **database migrations are append-only** — Existing migration files should not be edited; create a new revision instead.
+
+## Uncertainty
+
+- No LICENSE file detected — license intent is unclear.

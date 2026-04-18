@@ -1,0 +1,33 @@
+---
+description: High-level orientation for this repo.
+alwaysApply: true
+---
+
+# project-overview
+
+## What this repo is
+
+`repocanon` is a single package repository written primarily in Python. Detected frameworks/tools: Pydantic, pytest, Typer, Rich, Ruff.
+
+## Languages
+
+- Python (40 files)
+- Shell (2 files)
+
+## Frameworks
+
+- Pydantic — validation
+- pytest — test
+- Typer — cli
+- Rich — ui
+- Ruff — lint
+- mypy — typecheck
+
+## Package managers
+
+- pip (`pyproject.toml`)
+
+## Layout
+
+- `scripts/` — scripts
+- `tests/` — tests

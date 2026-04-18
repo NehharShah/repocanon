@@ -1,0 +1,13 @@
+---
+description: Style and naming rules inferred from the codebase.
+globs: **/*
+alwaysApply: false
+---
+
+# code-style-and-conventions
+
+## Code style
+
+- **JS/TS language**: TypeScript-first
+- **TypeScript file naming**: camelCase modules
+- **Next.js routing**: App Router under app/

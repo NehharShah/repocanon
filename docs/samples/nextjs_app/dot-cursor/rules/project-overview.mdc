@@ -1,0 +1,36 @@
+---
+description: High-level orientation for this repo.
+alwaysApply: true
+---
+
+# project-overview
+
+## What this repo is
+
+`nextjs-app` is a single package repository written primarily in TypeScript. Detected frameworks/tools: Next.js, React, Vitest, Playwright, ESLint.
+
+## Languages
+
+- TypeScript (6 files)
+
+## Frameworks
+
+- Next.js — web
+- React — frontend
+- Vitest — test
+- Playwright — test
+- ESLint — lint
+- Prettier — format
+- TypeScript — language-tooling
+- Tailwind CSS — ui
+- Zod — validation
+
+## Package managers
+
+- npm (`package.json`)
+
+## Layout
+
+- `__tests__/` — tests
+- `app/` — application
+- `lib/` — library

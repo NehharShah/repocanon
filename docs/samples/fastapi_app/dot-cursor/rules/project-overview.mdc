@@ -1,0 +1,34 @@
+---
+description: High-level orientation for this repo.
+alwaysApply: true
+---
+
+# project-overview
+
+## What this repo is
+
+`fastapi-app` is a single package repository written primarily in Python. Detected frameworks/tools: FastAPI, Pydantic, SQLAlchemy, Alembic, pytest.
+
+## Languages
+
+- Python (7 files)
+
+## Frameworks
+
+- FastAPI — web
+- Pydantic — validation
+- SQLAlchemy — orm
+- Alembic — migrations
+- pytest — test
+- Ruff — lint
+- mypy — typecheck
+
+## Package managers
+
+- pip (`pyproject.toml`)
+
+## Layout
+
+- `alembic/` — database migrations
+- `app/` — application
+- `tests/` — tests

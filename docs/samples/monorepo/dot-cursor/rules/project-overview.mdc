@@ -1,0 +1,34 @@
+---
+description: High-level orientation for this repo.
+alwaysApply: true
+---
+
+# project-overview
+
+## What this repo is
+
+`monorepo` is a monorepo repository written primarily in TypeScript. Detected frameworks/tools: Turborepo, TypeScript, Next.js, React, Vitest.
+
+## Languages
+
+- TypeScript (3 files)
+
+## Frameworks
+
+- Turborepo — monorepo
+- TypeScript — language-tooling
+- Next.js — web
+- React — frontend
+- Vitest — test
+
+## Package managers
+
+- pnpm (`package.json`)
+- pnpm (`apps/web/package.json`)
+- pnpm (`packages/ui/package.json`)
+- pnpm (`packages/utils/package.json`)
+
+## Layout
+
+- `apps/` — applications (monorepo)
+- `packages/` — packages (monorepo)

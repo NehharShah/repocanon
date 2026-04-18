@@ -1,0 +1,14 @@
+---
+description: Module and package boundaries to respect.
+alwaysApply: true
+---
+
+# architecture-boundaries
+
+## Boundaries
+
+- **package isolation** — Each package under apps/, packages/, libs/ or services/ owns its own dependencies and should not reach into another package's internals.
+
+## Uncertainty
+
+- No LICENSE file detected — license intent is unclear.

@@ -1,0 +1,30 @@
+---
+description: Commands to run for build, test, lint, and typecheck.
+alwaysApply: true
+---
+
+# commands-and-validation
+
+## Run these for validation
+
+- **Install**
+  - `python -m pip install -e .`
+- **Dev**
+  - `make dev`
+- **Test**
+  - `pytest`
+  - `make test`
+- **Lint**
+  - `ruff check .`
+  - `make lint`
+- **Format**
+  - `ruff format .`
+- **Typecheck**
+  - `mypy .`
+  - `make typecheck`
+- **Other make**
+  - `install`
+
+## Reporting
+
+When you finish a change, mention which commands you ran and their result. If you skipped one, say why.

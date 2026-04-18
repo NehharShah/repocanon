@@ -1,0 +1,23 @@
+---
+description: Commands to run for build, test, lint, and typecheck.
+alwaysApply: true
+---
+
+# commands-and-validation
+
+## Run these for validation
+
+- **Install**
+  - `pnpm install`
+- **Dev**
+  - `pnpm run dev`
+- **Build**
+  - `pnpm run build`
+- **Test**
+  - `pnpm run test`
+- **Lint**
+  - `pnpm run lint`
+
+## Reporting
+
+When you finish a change, mention which commands you ran and their result. If you skipped one, say why.

@@ -1,0 +1,28 @@
+---
+description: Commands to run for build, test, lint, and typecheck.
+alwaysApply: true
+---
+
+# commands-and-validation
+
+## Run these for validation
+
+- **Install**
+  - `npm install`
+- **Dev**
+  - `npm run dev`
+  - `npm run start`
+- **Build**
+  - `npm run build`
+- **Test**
+  - `npm run test`
+- **Lint**
+  - `npm run lint`
+- **Format**
+  - `npm run format`
+- **Typecheck**
+  - `npm run typecheck`
+
+## Reporting
+
+When you finish a change, mention which commands you ran and their result. If you skipped one, say why.

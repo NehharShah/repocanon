@@ -1,0 +1,15 @@
+---
+description: Scope-specific guidance for apps/.
+globs: apps/**
+alwaysApply: false
+---
+
+# scope-apps
+
+## `apps/` — applications (monorepo)
+
+Recognized top-level directory 'apps'.
+
+## Pointers
+
+Mirror the conventions used in neighboring files inside this directory. If a pattern looks new, prefer extending an existing module over creating a parallel one.
