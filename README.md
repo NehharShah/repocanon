@@ -2,7 +2,9 @@
 
 > Generate repo-specific AI context for Codex, Claude Code, Copilot, and Cursor.
 
-[![Python versions](https://img.shields.io/badge/python-3.11%20%7C%203.12%20%7C%203.13-blue.svg)](https://pypi.org/project/repocanon/)
+[![CI](https://github.com/NehharShah/repocanon/actions/workflows/ci.yml/badge.svg)](https://github.com/NehharShah/repocanon/actions/workflows/ci.yml)
+[![PyPI version](https://img.shields.io/pypi/v/repocanon.svg)](https://pypi.org/project/repocanon/)
+[![Python versions](https://img.shields.io/pypi/pyversions/repocanon.svg)](https://pypi.org/project/repocanon/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 Turn any repository into canonical AI-readable project context.
