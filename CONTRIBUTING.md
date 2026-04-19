@@ -72,3 +72,23 @@ Generators must:
 ## Fixture repos
 
 The tests rely on tiny, realistic fixture repos under `tests/fixtures/`. Keep them small but representative — they double as visible documentation of what RepoCanon can detect.
+
+## Releasing
+
+Releases are automated. Pushing a tag matching `v*` triggers `.github/workflows/release.yml`, which:
+
+1. Runs `make lint`, `make typecheck`, `make test` on Python 3.11 / 3.12 / 3.13.
+2. Verifies the git tag matches the `version` field in `pyproject.toml`.
+3. Builds the sdist + wheel with `python -m build` and validates them with `twine check`.
+4. Uploads to PyPI via [Trusted Publishing](https://docs.pypi.org/trusted-publishers/) — no API tokens are stored in the repo. The `pypi` GitHub Environment requires manual approval before the upload step runs.
+
+To cut a release:
+
+```bash
+# bump version in pyproject.toml
+git commit -am "Release vX.Y.Z"
+git tag -a vX.Y.Z -m "RepoCanon X.Y.Z"
+git push origin main vX.Y.Z
+# then approve the publish job on github.com/NehharShah/repocanon/actions
+```
+
