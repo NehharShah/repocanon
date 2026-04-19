@@ -39,3 +39,16 @@ def test_project_model_round_trip_json() -> None:
 def test_overall_confidence_zero_when_no_findings() -> None:
     model = ProjectModel(repo_name="x", repo_path=".")
     assert model.overall_confidence() == 0.0
+
+
+def test_version_matches_installed_metadata() -> None:
+    """Catch the bug where __init__.__version__ drifts from pyproject.toml."""
+    from importlib.metadata import version
+
+    import repocanon
+
+    assert repocanon.__version__ == version("repocanon"), (
+        f"repocanon.__version__ ({repocanon.__version__}) does not match installed "
+        f"package metadata ({version('repocanon')}). Did you forget to bump one of "
+        "them, or did the package not get reinstalled after a version change?"
+    )
