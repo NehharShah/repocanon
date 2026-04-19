@@ -29,8 +29,5 @@
 
 - **Python lint/format**: Ruff
 - **Python type checking**: mypy
+- **CI**: GitHub Actions
 - **Python file naming**: snake_case modules
-
-## When unsure
-
-Prefer asking a clarifying question over inventing repo-specific behavior. Mirror existing patterns from neighboring files instead of introducing new ones.

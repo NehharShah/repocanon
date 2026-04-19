@@ -1,8 +1,12 @@
 """Shared building blocks used by every target-specific generator.
 
-Each generator turns a ``ProjectModel`` into Markdown. To keep outputs
+Each generator turns a :class:`ProjectModel` into Markdown. To keep outputs
 readable and grounded, every section is generated from concrete facts and is
 omitted entirely when no facts are available — we never pad with filler.
+
+Manual-block preservation is owned by :mod:`repocanon.output.write_files`.
+Generators emit empty markers; the writer is responsible for keeping the
+user's prior content between them on regeneration.
 """
 
 from __future__ import annotations
@@ -16,6 +20,7 @@ from repocanon.models.project import (
     DirectoryRole,
     Framework,
     Language,
+    Package,
     PackageManager,
     ProjectModel,
 )
@@ -32,17 +37,14 @@ MANUAL_BEGIN = "<!-- repocanon:manual:begin -->"
 MANUAL_END = "<!-- repocanon:manual:end -->"
 
 
-def manual_block(existing: str = "") -> str:
-    """Render a preserved manual-edits block.
+def manual_block() -> str:
+    """Render an empty manual-edits block.
 
-    When ``existing`` already contains a RepoCanon-managed file, only the
-    prior manual section is reused so we don't accidentally embed the entire
-    previous file inside the new one.
+    The markers are always present so the writer can splice prior contents
+    back in on regeneration. We do not emit a placeholder hint inside —
+    blank means "no manual notes yet" rather than the file being half-empty.
     """
-    prior = split_manual_block(existing) if existing else ""
-    inner = prior.strip()
-    body = f"\n{inner}\n" if inner else "\n_Add notes that should survive regeneration here._\n"
-    return f"{MANUAL_BEGIN}{body}{MANUAL_END}"
+    return f"{MANUAL_BEGIN}\n\n{MANUAL_END}"
 
 
 def header(target: str) -> str:
@@ -65,7 +67,7 @@ def languages_block(languages: Iterable[Language]) -> str:
 
 
 def frameworks_block(frameworks: Iterable[Framework]) -> str:
-    items = [f"{fw.name} — {fw.category}" for fw in frameworks]
+    items = [f"{fw.name} — {fw.category.value}" for fw in frameworks]
     return bullet_list(items)
 
 
@@ -124,35 +126,75 @@ def uncertainty_block(model: ProjectModel) -> str:
     low_conf = [
         f"Low-confidence inference: {f.subject} — {truncate(f.rationale, 140)}"
         for f in model.findings
-        if f.confidence is Confidence.low
+        if f.confidence is Confidence.low and f.kind != "parse-warning"
     ]
     return bullet_list(notes + low_conf)
 
 
+def preferred_libraries_block(libraries: Iterable[str], *, limit: int = 12) -> str:
+    """Render the deduped declared-deps list as a small inline comma list."""
+    libs = [lib for lib in libraries if lib]
+    if not libs:
+        return ""
+    preview = ", ".join(f"`{lib}`" for lib in libs[:limit])
+    if len(libs) > limit:
+        preview += f", and {len(libs) - limit} more"
+    return preview + "."
+
+
+def packages_block(packages: Iterable[Package], *, terse: bool = False) -> str:
+    """Render per-package monorepo entries with their own commands.
+
+    Generators surface this block alongside (not instead of) the global
+    command set so AI agents know to ``cd`` into the right package before
+    running a script.
+    """
+    rendered: list[str] = []
+    for p in packages:
+        header_line = f"### `{p.path}/` — {p.name}"
+        if p.package_manager:
+            header_line += f"  ({p.package_manager})"
+        body_lines = [header_line]
+        if p.frameworks:
+            body_lines.append(
+                "Frameworks: " + ", ".join(f"`{fw.name}`" for fw in p.frameworks[:6])
+            )
+        if not p.commands.is_empty():
+            body_lines.append("")
+            body_lines.append(commands_block(p.commands, terse=terse))
+        rendered.append("\n".join(body_lines))
+    return "\n\n".join(rendered)
+
+
 def standard_sections(model: ProjectModel, *, terse: bool = False) -> list[str]:
-    """The set of sections shared by AGENTS.md and CLAUDE.md."""
-    return [
+    """The full set of sections used by AGENTS.md."""
+    out = [
         section("Project overview", overview_paragraph(model), level=2),
         section("Languages", languages_block(model.languages), level=2),
         section("Frameworks and tools", frameworks_block(model.frameworks), level=2),
         section("Package managers", package_managers_block(model.package_managers), level=2),
         section("Commands", commands_block(model.commands, terse=terse), level=2),
-        section("Repository layout", directories_block(model.key_directories), level=2),
-        section(
-            "Conventions",
-            conventions_block([*model.conventions, *model.naming_conventions]),
-            level=2,
-        ),
-        section("Architecture boundaries", boundaries_block(model), level=2),
-        section("Avoid", anti_patterns_block(model), level=2),
-        section("Uncertainty", uncertainty_block(model), level=2),
     ]
-
-
-def split_manual_block(existing: str) -> str:
-    """Extract the contents between manual markers in an existing file."""
-    if MANUAL_BEGIN not in existing or MANUAL_END not in existing:
-        return ""
-    start = existing.index(MANUAL_BEGIN) + len(MANUAL_BEGIN)
-    end = existing.index(MANUAL_END)
-    return existing[start:end].strip()
+    if model.monorepo_packages:
+        out.append(
+            section(
+                "Per-package commands",
+                packages_block(model.monorepo_packages, terse=terse),
+                level=2,
+            )
+        )
+    out.extend(
+        [
+            section("Repository layout", directories_block(model.key_directories), level=2),
+            section(
+                "Conventions",
+                conventions_block([*model.conventions, *model.naming_conventions]),
+                level=2,
+            ),
+            section("Architecture boundaries", boundaries_block(model), level=2),
+            section("Preferred libraries", preferred_libraries_block(model.preferred_libraries), level=2),
+            section("Avoid", anti_patterns_block(model), level=2),
+            section("Uncertainty", uncertainty_block(model), level=2),
+        ]
+    )
+    return out

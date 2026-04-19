@@ -38,7 +38,3 @@
 ## Avoid
 
 - Do not edit existing Alembic migrations; create a new revision (`alembic revision -m '…'`).
-
-## When unsure
-
-Prefer asking a clarifying question over inventing repo-specific behavior. Mirror existing patterns from neighboring files instead of introducing new ones.

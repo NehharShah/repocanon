@@ -1,7 +1,6 @@
 ---
 description: Style and naming rules inferred from the codebase.
-globs: **/*
-alwaysApply: false
+alwaysApply: true
 ---
 
 # code-style-and-conventions
@@ -10,4 +9,5 @@ alwaysApply: false
 
 - **Python lint/format**: Ruff
 - **Python type checking**: mypy
+- **CI**: GitHub Actions
 - **Python file naming**: snake_case modules

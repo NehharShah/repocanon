@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from collections.abc import Iterable
 from pathlib import Path
 
@@ -10,6 +11,14 @@ from repocanon.models.findings import Confidence, Finding
 from repocanon.models.project import Convention, Framework, TestLayout
 
 MIN_FILES_FOR_NAMING_CONVENTION = 5
+
+# Stems we ignore when computing naming-style ratios. These are dunder /
+# routing convention files that have nothing to do with the team's chosen
+# style for module names.
+_PY_DUNDER_STEMS: frozenset[str] = frozenset({"__init__", "__main__"})
+_TS_ROUTE_STEMS: frozenset[str] = frozenset(
+    {"page", "layout", "loading", "error", "not-found", "route", "head", "default", "template"}
+)
 
 
 def infer_test_layout(rel_paths: Iterable[str]) -> tuple[TestLayout, Finding]:
@@ -72,14 +81,47 @@ def infer_test_layout(rel_paths: Iterable[str]) -> tuple[TestLayout, Finding]:
     )
 
 
+def _is_snake_case(stem: str) -> bool:
+    return bool(stem) and "-" not in stem and stem.islower() and " " not in stem
+
+
+_PASCAL_RE = re.compile(r"^[A-Z][A-Za-z0-9]*$")
+_CAMEL_RE = re.compile(r"^[a-z][a-zA-Z0-9]*$")
+_KEBAB_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)+$")
+
+
+def _classify_ts_stem(stem: str) -> str:
+    """Return one of {'pascal', 'camel', 'kebab', 'lower', 'other'}.
+
+    Crucially, a stem like "page" or "utils" matches *neither* camelCase nor
+    PascalCase — it's just lowercase. The previous heuristic miscounted
+    these as camelCase because it only checked ``stem[0].islower()``.
+    """
+    if not stem:
+        return "other"
+    if "-" in stem:
+        return "kebab" if _KEBAB_RE.match(stem) else "other"
+    if _PASCAL_RE.match(stem):
+        return "pascal"
+    if any(c.isupper() for c in stem) and _CAMEL_RE.match(stem):
+        return "camel"
+    if stem.islower():
+        return "lower"
+    return "other"
+
+
 def infer_naming_conventions(
     rel_paths: Iterable[str], frameworks: list[Framework]
 ) -> list[Convention]:
     out: list[Convention] = []
     paths = list(rel_paths)
-    py_files = [p for p in paths if p.endswith(".py")]
+    py_files = [
+        p
+        for p in paths
+        if p.endswith(".py") and Path(p).stem not in _PY_DUNDER_STEMS
+    ]
     if len(py_files) >= MIN_FILES_FOR_NAMING_CONVENTION:
-        snake = sum(1 for p in py_files if "-" not in Path(p).stem and Path(p).stem.islower())
+        snake = sum(1 for p in py_files if _is_snake_case(Path(p).stem))
         ratio = snake / len(py_files)
         if ratio > 0.85:
             out.append(
@@ -91,43 +133,39 @@ def infer_naming_conventions(
                 )
             )
 
+    # Bucket TS/JS by directory class so that the answer can be "PascalCase
+    # for components, lowercase for routes" instead of one false winner.
     ts_files = [p for p in paths if p.endswith((".ts", ".tsx", ".js", ".jsx"))]
     if len(ts_files) >= MIN_FILES_FOR_NAMING_CONVENTION:
-        kebab = sum(1 for p in ts_files if "-" in Path(p).stem)
-        camel = sum(
-            1
-            for p in ts_files
-            if Path(p).stem and Path(p).stem[0].islower() and "-" not in Path(p).stem
-        )
-        pascal = sum(1 for p in ts_files if Path(p).stem and Path(p).stem[0].isupper())
-        total = len(ts_files)
-        if pascal / total > 0.5:
-            out.append(
-                Convention(
-                    name="TypeScript file naming",
-                    value="PascalCase for component files",
-                    rationale=f"{int(pascal / total * 100)}% of TS/JS files start with an uppercase letter.",
-                    confidence=Confidence.medium,
-                )
-            )
-        elif kebab / total > 0.5:
-            out.append(
-                Convention(
-                    name="TypeScript file naming",
-                    value="kebab-case modules",
-                    rationale=f"{int(kebab / total * 100)}% of TS/JS files use kebab-case.",
-                    confidence=Confidence.medium,
-                )
-            )
-        elif camel / total > 0.5:
-            out.append(
-                Convention(
-                    name="TypeScript file naming",
-                    value="camelCase modules",
-                    rationale=f"{int(camel / total * 100)}% of TS/JS files use camelCase.",
-                    confidence=Confidence.medium,
-                )
-            )
+        components: list[str] = []
+        hooks: list[str] = []
+        routes: list[str] = []
+        general: list[str] = []
+        for p in ts_files:
+            stem = Path(p).stem
+            posix = p.lower()
+            if "components/" in posix:
+                components.append(stem)
+            elif "hooks/" in posix or stem.startswith("use") and len(stem) > 3 and stem[3].isupper():
+                hooks.append(stem)
+            elif (
+                "/app/" in posix
+                or posix.startswith("app/")
+                or "/pages/" in posix
+                or posix.startswith("pages/")
+                or stem in _TS_ROUTE_STEMS
+            ):
+                routes.append(stem)
+            else:
+                general.append(stem)
+
+        out.extend(_ts_convention_for(components, label="TypeScript components", min_required=3))
+        out.extend(_ts_convention_for(hooks, label="TypeScript hooks", min_required=3))
+        out.extend(_ts_convention_for(routes, label="TypeScript route files", min_required=3))
+        if not components and not hooks and not routes:
+            # Mixed buckets — only emit if the *general* bucket is dominated
+            # by a single style (>70%) so we don't fabricate a winner.
+            out.extend(_ts_convention_for(general, label="TypeScript files", min_required=5, threshold=0.7))
 
     fw_names = {fw.name for fw in frameworks}
     if "Next.js" in fw_names and any(p.startswith("app/") for p in paths):
@@ -151,6 +189,44 @@ def infer_naming_conventions(
     return out
 
 
+def _ts_convention_for(
+    stems: list[str], *, label: str, min_required: int, threshold: float = 0.6
+) -> list[Convention]:
+    if len(stems) < min_required:
+        return []
+    counts = {
+        "pascal": 0,
+        "camel": 0,
+        "kebab": 0,
+        "lower": 0,
+    }
+    for stem in stems:
+        kind = _classify_ts_stem(stem)
+        if kind in counts:
+            counts[kind] += 1
+    total = sum(counts.values())
+    if total == 0:
+        return []
+    winner, n = max(counts.items(), key=lambda kv: kv[1])
+    ratio = n / total
+    if ratio < threshold:
+        return []
+    name_for_winner = {
+        "pascal": "PascalCase",
+        "camel": "camelCase",
+        "kebab": "kebab-case",
+        "lower": "lowercase",
+    }[winner]
+    return [
+        Convention(
+            name=label,
+            value=f"{name_for_winner}",
+            rationale=f"{int(ratio * 100)}% of {len(stems)} files use {name_for_winner}.",
+            confidence=Confidence.medium,
+        )
+    ]
+
+
 def infer_general_conventions(
     rel_paths: Iterable[str],
     manifests: list[ManifestData],
@@ -161,23 +237,36 @@ def infer_general_conventions(
     fw_names = {fw.name for fw in frameworks}
     file_set = set(paths)
 
-    has_pyproject = any(m.kind == "pyproject" for m in manifests)
-    if has_pyproject and "Ruff" in fw_names:
+    pyproject_manifests = [m for m in manifests if m.kind == "pyproject"]
+    has_pyproject = bool(pyproject_manifests)
+    declared_tools = {t.lower() for m in pyproject_manifests for t in m.declared_tools}
+
+    if "Ruff" in fw_names:
+        configured = "ruff" in declared_tools
         out.append(
             Convention(
                 name="Python lint/format",
                 value="Ruff",
-                rationale="Ruff configured in pyproject.toml or installed as a dev dep.",
-                confidence=Confidence.high,
+                rationale=(
+                    "[tool.ruff] configured in pyproject.toml."
+                    if configured
+                    else "Ruff installed as a dependency (no [tool.ruff] section)."
+                ),
+                confidence=Confidence.high if configured else Confidence.medium,
             )
         )
-    if has_pyproject and "mypy" in fw_names:
+    if "mypy" in fw_names:
+        configured = "mypy" in declared_tools
         out.append(
             Convention(
                 name="Python type checking",
                 value="mypy",
-                rationale="mypy installed.",
-                confidence=Confidence.high,
+                rationale=(
+                    "[tool.mypy] configured in pyproject.toml."
+                    if configured
+                    else "mypy installed as a dependency (no [tool.mypy] section)."
+                ),
+                confidence=Confidence.high if configured else Confidence.medium,
             )
         )
 
@@ -221,7 +310,21 @@ def infer_general_conventions(
             )
         )
 
+    if has_pyproject and any(m.kind == "Dockerfile" for m in manifests):
+        out.append(
+            Convention(
+                name="Container build",
+                value="Dockerfile at repo root",
+                rationale="Dockerfile present.",
+                confidence=Confidence.high,
+            )
+        )
+
     return out
+
+
+_LICENSE_NAME_RE = re.compile(r"^(license|licence|copying|copyright)(\.[a-z0-9]+)?$", re.IGNORECASE)
+_README_NAME_RE = re.compile(r"^readme(\.[a-z0-9]+)?$", re.IGNORECASE)
 
 
 def infer_anti_patterns_and_uncertainty(
@@ -238,7 +341,7 @@ def infer_anti_patterns_and_uncertainty(
             "Avoid editing both requirements.txt and pyproject.toml — pick one as the source of truth."
         )
 
-    if any(p.endswith(".env") for p in paths):
+    if any(p.endswith(".env") and not p.endswith(".env.example") for p in paths):
         anti.append("Never commit `.env` files; they may contain secrets.")
 
     if "Alembic" in fw_names or any(p.startswith("alembic/") for p in paths):
@@ -249,10 +352,12 @@ def infer_anti_patterns_and_uncertainty(
     if any(p.startswith("migrations/") for p in paths):
         anti.append("Do not edit historical files in `migrations/`; add a new migration instead.")
 
-    if not any(p.endswith("LICENSE") or p.endswith("LICENSE.md") for p in paths):
+    if not any(_LICENSE_NAME_RE.match(Path(p).name) for p in paths):
         uncertainty.append("No LICENSE file detected — license intent is unclear.")
 
-    if not any("README" in Path(p).name for p in paths):
+    # Use a strict regex against the *file name only*, anchored to a dot or
+    # end-of-string, so 'OLD_README.md' doesn't satisfy the README check.
+    if not any(_README_NAME_RE.match(Path(p).name) for p in paths):
         uncertainty.append("No README detected — high-level intent is hard to infer.")
 
     return anti, uncertainty

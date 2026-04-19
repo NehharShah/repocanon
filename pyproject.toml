@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "repocanon"
-version = "0.1.3"
+version = "0.2.0"
 description = "Analyze a local repository and generate AI-readable project instruction files from a single repo model."
 readme = "README.md"
 license = { text = "MIT" }
@@ -60,6 +60,7 @@ dev = [
 Homepage = "https://github.com/NehharShah/repocanon"
 Repository = "https://github.com/NehharShah/repocanon"
 Issues = "https://github.com/NehharShah/repocanon/issues"
+Changelog = "https://github.com/NehharShah/repocanon/blob/main/CHANGELOG.md"
 
 [project.scripts]
 repocanon = "repocanon.cli:app"
@@ -71,6 +72,7 @@ packages = ["repocanon"]
 include = [
   "repocanon",
   "README.md",
+  "CHANGELOG.md",
   "LICENSE",
   "CONTRIBUTING.md",
   "pyproject.toml"
@@ -87,6 +89,7 @@ ignore = ["B008", "UP007"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+norecursedirs = ["tests/fixtures", "tests/fixtures/*"]
 python_classes = ["Test*Case", "*TestSuite"]
 filterwarnings = [
   "ignore::DeprecationWarning",

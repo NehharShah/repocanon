@@ -38,7 +38,8 @@ def test_claude_md_terse(fastapi_repo: Path) -> None:
     plan = generate_claude(model)
     body = _content_by_path(plan)["CLAUDE.md"]
     assert "fastapi-app" in body
-    assert "## Must run" in body
+    assert "## Run these" in body
+    assert "## What this is" in body
 
 
 def test_copilot_paths(monorepo_repo: Path) -> None:

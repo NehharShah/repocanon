@@ -27,13 +27,44 @@ def test_project_model_round_trip_json() -> None:
         languages=[Language(name="Python", file_count=3)],
         topology=TopologyKind.single_package,
         test_layout=TestLayout.centralized,
-        findings=[Finding(kind="x", subject="y", rationale="z", confidence=Confidence.high)],
+        findings=[
+            Finding(
+                kind="x",
+                subject="y",
+                rationale="z",
+                confidence=Confidence.high,
+                evidence=["a", "b", "c"],
+            )
+        ],
     )
     payload = model.model_dump_json()
     restored = ProjectModel.model_validate_json(payload)
     assert restored.repo_name == "demo"
     assert restored.primary_language() == "Python"
     assert 0.99 < restored.overall_confidence() <= 1.0
+
+
+def test_overall_confidence_evidence_weighted() -> None:
+    """A high finding with no evidence should be discounted vs one with evidence."""
+    no_evidence = ProjectModel(
+        repo_name="x",
+        repo_path=".",
+        findings=[Finding(kind="x", subject="y", rationale="z", confidence=Confidence.high)],
+    )
+    with_evidence = ProjectModel(
+        repo_name="x",
+        repo_path=".",
+        findings=[
+            Finding(
+                kind="x",
+                subject="y",
+                rationale="z",
+                confidence=Confidence.high,
+                evidence=["a", "b", "c"],
+            )
+        ],
+    )
+    assert no_evidence.overall_confidence() < with_evidence.overall_confidence()
 
 
 def test_overall_confidence_zero_when_no_findings() -> None:

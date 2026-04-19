@@ -69,20 +69,23 @@ repocanon analyze .
 repocanon audit .
 
 # 3. Preview generated outputs without touching the filesystem.
-repocanon preview all .
+repocanon preview .
 
-# 4. Write the generated files into the repo.
-repocanon generate all .
+# 4. Write the generated files into the repo (defaults to all targets).
+repocanon generate .
 ```
 
-You can also generate one target at a time:
+You can also generate one or more specific targets:
 
 ```bash
-repocanon generate agents .
-repocanon generate claude .
-repocanon generate copilot .
-repocanon generate cursor .
+repocanon generate . -t agents
+repocanon generate . -t claude -t copilot
+repocanon list-targets         # see what's available
 ```
+
+Need machine-readable output? Append `--json` to `analyze`, `audit`, or `diff`.
+Need to undo? `repocanon clean .` (or scope it with `-t copilot`) removes only
+RepoCanon-authored files (those that carry the generator header marker).
 
 ## Example outputs
 
@@ -155,35 +158,41 @@ Analyze the repository and write a normalized model to:
 .repocanon/project-model.json
 ```
 
-### `repocanon generate [target] [PATH]`
+### `repocanon generate [PATH]`
 
-Generate output for one target or all targets.
-
-Supported targets:
-
-- `agents`
-- `claude`
-- `copilot`
-- `cursor`
-- `all`
+Generate output for the selected targets (defaults to all).
 
 Useful flags:
 
-- `--dry-run`
-- `--output-dir`
-- `--force`
+- `-t, --target` — repeat to pick targets (`agents`, `claude`, `copilot`, `cursor`, or `all`)
+- `--dry-run` — render and report without writing or persisting the model
+- `--output-dir` — write into a sibling directory (path-traversal-safe)
+- `--force` — replace files even if RepoCanon would otherwise preserve manual edits
 
-### `repocanon preview [target] [PATH]`
+### `repocanon preview [PATH]`
 
-Print generated output to the terminal without writing files.
+Print generated output to the terminal without writing files. Same `-t` flag as `generate`.
+
+### `repocanon list-targets`
+
+List every target the current build supports.
+
+### `repocanon clean [PATH]`
+
+Delete RepoCanon-authored files for the selected targets. Files without the
+RepoCanon header marker (i.e. anything you wrote yourself) are skipped. Pair
+with `--dry-run` to see what would happen.
 
 ### `repocanon audit [PATH]`
 
-Show inferred conventions, rationale, and confidence levels.
+Show inferred conventions, rationale, and confidence levels. Pass `--json` to
+emit the audit as JSON for piping into other tools.
 
 ### `repocanon diff [PATH]`
 
-Compare the current repo scan with the saved model and report meaningful changes.
+Compare the current repo scan with the saved model and report meaningful changes
+(specific commands added/removed, package list deltas, structural fingerprint
+changes). Pass `--json` for a machine-readable diff.
 
 ### `repocanon init [PATH]`
 

@@ -2,8 +2,13 @@
 
 Copilot reads ``.github/copilot-instructions.md`` for repo-wide guidance and
 also picks up path-scoped ``.github/instructions/*.instructions.md`` files.
-We always emit the repo-wide file and conditionally emit a small set of
-path-scoped files when the topology suggests they will be useful.
+We always emit the repo-wide file and conditionally emit a path-scoped file
+for each directory whose role implies different rules from the rest of the
+repo (tests, monorepo packages, Go internal packages, database migrations).
+
+We deliberately do not include the static "When unsure / Mirror existing
+patterns" boilerplate that earlier versions emitted — every line here is
+grounded in something the analyzer found in this repo.
 """
 
 from __future__ import annotations
@@ -18,7 +23,7 @@ from repocanon.generators.common import (
     section,
 )
 from repocanon.models.outputs import GeneratedFile, GenerationPlan
-from repocanon.models.project import ProjectModel, TopologyKind
+from repocanon.models.project import ProjectModel, RoleKind, TopologyKind
 from repocanon.utils.text import bullet_list, join_sections
 
 
@@ -28,7 +33,11 @@ def _repo_wide(model: ProjectModel) -> GeneratedFile:
         header("copilot"),
         section("Project context", overview_paragraph(model), level=2),
         section("Frameworks and tools", frameworks_block(model.frameworks), level=2),
-        section("Commands Copilot should suggest", commands_block(model.commands, terse=True), level=2),
+        section(
+            "Commands Copilot should suggest",
+            commands_block(model.commands, terse=True),
+            level=2,
+        ),
         section(
             "Conventions to follow",
             conventions_block([*model.conventions, *model.naming_conventions]),
@@ -36,12 +45,6 @@ def _repo_wide(model: ProjectModel) -> GeneratedFile:
         ),
         section("Boundaries to respect", boundaries_block(model), level=2),
         section("Avoid", bullet_list(model.anti_patterns), level=2),
-        section(
-            "When unsure",
-            "Prefer asking a clarifying question over inventing repo-specific behavior. "
-            "Mirror existing patterns from neighboring files instead of introducing new ones.",
-            level=2,
-        ),
     ]
     return GeneratedFile(
         path=".github/copilot-instructions.md",
@@ -51,85 +54,103 @@ def _repo_wide(model: ProjectModel) -> GeneratedFile:
     )
 
 
+def _scoped_file(
+    *,
+    glob: str,
+    file_path: str,
+    title: str,
+    body: str,
+    description: str,
+) -> GeneratedFile:
+    sections = [
+        "---",
+        f'applyTo: "{glob}"',
+        "---",
+        header("copilot"),
+        section(title, body, level=2),
+    ]
+    return GeneratedFile(
+        path=file_path,
+        content=join_sections(sections),
+        target="copilot",
+        description=description,
+    )
+
+
 def _path_scoped(model: ProjectModel) -> list[GeneratedFile]:
     """Emit small path-scoped instruction files when the structure warrants it."""
     out: list[GeneratedFile] = []
-    dir_paths = {d.path for d in model.key_directories}
+    by_kind: dict[RoleKind, list[str]] = {}
+    for dir_role in model.key_directories:
+        by_kind.setdefault(dir_role.role_kind, []).append(dir_role.path)
 
-    if "tests" in dir_paths or "test" in dir_paths:
+    for path in by_kind.get(RoleKind.test, []):
         out.append(
-            GeneratedFile(
-                path=".github/instructions/tests.instructions.md",
-                content=join_sections(
-                    [
-                        "---",
-                        'applyTo: "tests/**"',
-                        "---",
-                        header("copilot"),
-                        section(
-                            "Test code conventions",
-                            "Follow the existing test layout. Match assertion style and fixture "
-                            "patterns from neighboring tests; keep new tests deterministic and fast.",
-                            level=2,
-                        ),
-                    ]
+            _scoped_file(
+                glob=f"{path}/**",
+                file_path=f".github/instructions/{path}.instructions.md",
+                title=f"Test code in `{path}/`",
+                body=(
+                    "Match the assertion style and fixture patterns used by neighboring "
+                    f"tests under `{path}/`. New tests must be deterministic, not depend on "
+                    "external services, and not write outside the test's tmp directory."
                 ),
-                target="copilot",
-                description="Path-scoped instructions for tests/.",
+                description=f"Path-scoped instructions for {path}/.",
             )
         )
 
-    if model.topology is TopologyKind.monorepo and "packages" in dir_paths:
-        out.append(
-            GeneratedFile(
-                path=".github/instructions/packages.instructions.md",
-                content=join_sections(
-                    [
-                        "---",
-                        'applyTo: "packages/**"',
-                        "---",
-                        header("copilot"),
-                        section(
-                            "Shared package conventions",
-                            "Each package owns its own dependencies. Do not import from another "
-                            "package's internals; export through the package's public entry point.",
-                            level=2,
-                        ),
-                    ]
-                ),
-                target="copilot",
-                description="Path-scoped instructions for packages/.",
-            )
+    if model.topology is TopologyKind.monorepo:
+        monorepo_paths = by_kind.get(RoleKind.monorepo_packages, []) + by_kind.get(
+            RoleKind.monorepo_libs, []
         )
+        for path in monorepo_paths:
+            out.append(
+                _scoped_file(
+                    glob=f"{path}/**",
+                    file_path=f".github/instructions/{path}.instructions.md",
+                    title=f"Shared packages under `{path}/`",
+                    body=(
+                        "Each package owns its own dependencies. Do not import from another "
+                        "package's internals; only consume the package's exported entry point."
+                    ),
+                    description=f"Path-scoped instructions for {path}/.",
+                )
+            )
 
-    if model.topology is TopologyKind.multi_binary and "internal" in dir_paths:
+    if model.topology is TopologyKind.multi_binary:
+        for path in by_kind.get(RoleKind.internal, []):
+            out.append(
+                _scoped_file(
+                    glob=f"{path}/**",
+                    file_path=f".github/instructions/{path}.instructions.md",
+                    title=f"Go internal/ visibility (`{path}/`)",
+                    body=(
+                        f"Code under `{path}/` is private to this module — Go enforces it at "
+                        "compile time. Treat it as private API: callers under `cmd/` and within "
+                        "`internal/` are fine, but do not export it via `pkg/` casually."
+                    ),
+                    description=f"Path-scoped instructions for {path}/.",
+                )
+            )
+
+    for path in by_kind.get(RoleKind.migrations, []):
         out.append(
-            GeneratedFile(
-                path=".github/instructions/internal.instructions.md",
-                content=join_sections(
-                    [
-                        "---",
-                        'applyTo: "internal/**"',
-                        "---",
-                        header("copilot"),
-                        section(
-                            "Go internal/ visibility",
-                            "Code under internal/ is private to this module — Go enforces it at "
-                            "compile time. Treat it as private API: callers under cmd/ and within "
-                            "internal/ are fine, but never import from another module.",
-                            level=2,
-                        ),
-                    ]
+            _scoped_file(
+                glob=f"{path}/**",
+                file_path=f".github/instructions/{path}.instructions.md",
+                title=f"Append-only migrations in `{path}/`",
+                body=(
+                    f"Files under `{path}/` are historical. Do not edit them. Add a new "
+                    "migration revision instead and let the migration tool stitch it in."
                 ),
-                target="copilot",
-                description="Path-scoped instructions for internal/.",
+                description=f"Path-scoped instructions for {path}/.",
             )
         )
 
     return out
 
 
-def generate_copilot(model: ProjectModel, existing: str = "") -> GenerationPlan:
+def generate_copilot(model: ProjectModel) -> GenerationPlan:
     plan = GenerationPlan(target="copilot")
     plan.add(_repo_wide(model))
     for f in _path_scoped(model):

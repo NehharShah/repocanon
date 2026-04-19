@@ -17,5 +17,5 @@ The dotfile directories are renamed to `dot-github/` and `dot-cursor/` only here
 To regenerate these locally:
 
 ```bash
-make demo
+scripts/regen_samples.sh
 ```

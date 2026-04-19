@@ -32,7 +32,6 @@
   - `npm install`
 - **Dev**
   - `npm run dev`
-  - `npm run start`
 - **Build**
   - `npm run build`
 - **Test**
@@ -43,18 +42,23 @@
   - `npm run format`
 - **Typecheck**
   - `npm run typecheck`
+- **Other scripts**
+  - `npm run start`
 
 ## Repository layout
 
 - `__tests__/` — tests
-- `app/` — application
+- `app/` — application source
 - `lib/` — library
 
 ## Conventions
 
 - **JS/TS language**: TypeScript-first
-- **TypeScript file naming**: camelCase modules
 - **Next.js routing**: App Router under app/
+
+## Preferred libraries
+
+`next`, `react`, `react-dom`, `tailwindcss`, `zod`, `@playwright/test`, `eslint`, `prettier`, `typescript`, `vitest`.
 
 ## Uncertainty
 
@@ -67,5 +71,5 @@ Run lint, typecheck, and tests before claiming a change is complete. If any tool
 ## Manual notes
 
 <!-- repocanon:manual:begin -->
-_Add notes that should survive regeneration here._
+
 <!-- repocanon:manual:end -->

@@ -1,0 +1,15 @@
+---
+description: Scope-specific guidance for test directories.
+globs: tests/**
+alwaysApply: false
+---
+
+# scope-test
+
+## Applies to
+
+- `tests/`
+
+## Rule
+
+Match the assertion style and fixture patterns of neighboring tests in this directory. Tests must be deterministic and must not reach the network.

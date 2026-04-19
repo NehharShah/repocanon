@@ -16,7 +16,6 @@ alwaysApply: true
 - **Test**
   - `pytest`
   - `make test`
-  - `make publish-test`
 - **Lint**
   - `ruff check .`
   - `make lint`
@@ -26,11 +25,15 @@ alwaysApply: true
 - **Typecheck**
   - `mypy .`
   - `make typecheck`
+- **Other entry-points**
+  - `repocanon`
 - **Other make**
   - `install`
   - `clean`
-  - `publish`
   - `demo`
+- **Other release**
+  - `make publish-test`
+  - `make publish`
 
 ## Reporting
 

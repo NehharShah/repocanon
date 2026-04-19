@@ -1,0 +1,139 @@
+# Changelog
+
+All notable changes to RepoCanon are documented in this file.
+
+The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [0.2.0] - 2026-04-18
+
+This release is a hard pass over the v0.1.x review backlog. It fixes real
+analyzer bugs, sharpens the generated outputs, modernizes the CLI, and adds
+substantial negative-case test coverage.
+
+### Fixed
+
+- **Command classification**: `make publish-test`, `make release`, and similar
+  release-shaped scripts no longer get mis-bucketed as Test commands. Release
+  precedence (`publish*`, `release*`, `deploy*`, `docker*`) now beats
+  test/build/dev keyword matches.
+- **`npm run start` no longer pretends to be Dev** when a real `dev` script
+  exists; it surfaces under generic `scripts` instead, avoiding the "tells
+  Cursor to run prod as dev" footgun.
+- **Monorepo nested `package.json` scripts** are no longer merged into the root
+  `CommandSet`. Each detected sub-package owns its own `commands` block, so
+  generators no longer instruct users to run `pnpm run dev` from the repo root
+  when only `apps/web/package.json` declares it.
+- **Source package directories are now visible.** Any directory containing
+  `__init__.py`, a hatch wheel package, `cmd/<bin>/main.go`, etc. is tagged as
+  `source` so AGENTS.md/CLAUDE.md actually mention the most important folder.
+- **`*.lock` no longer hides yarn/uv/Cargo lockfiles** from package-manager
+  detection. yarn/uv/Cargo are now correctly identified.
+- **`fingerprint_paths` is repo-relative**, so moving a repo on disk no longer
+  triggers a false-positive `repocanon diff`.
+- **Python `snake_case` ratio** ignores dunder modules (`__init__.py`,
+  `__main__.py`).
+- **TypeScript naming inference** distinguishes lowercase route files
+  (`page.tsx`, `layout.tsx`, `not-found.tsx`) from camelCase, recognizes
+  PascalCase components and camelCase hooks, and emits per-bucket conventions
+  instead of one mushy averaged result.
+- **Cursor rule frontmatter** no longer ships the `alwaysApply: true` /
+  `globs: ["..."]` contradiction.
+- **`--dry-run`** truly skips writing `.repocanon/project-model.json`.
+- **`copilot` / `cursor` generators** no longer accept a phantom `existing=""`
+  parameter that wasn't being honored. Manual-block preservation is centralized
+  in `output/write_files.py`.
+
+### Added
+
+- **`requirements.txt`, `setup.cfg`, `setup.py`, `Pipfile` parsers** so
+  Python projects without `pyproject.toml` are no longer invisible.
+- **`pnpm-workspace.yaml`, `nx.json`, `turbo.json`, `lerna.json`, `rush.json`,
+  `go.work`, Cargo workspaces** all feed monorepo detection.
+- **`Makefile`, `Justfile`, `Taskfile.yml`, `tox.ini`, `noxfile.py`,
+  `Dockerfile`, `docker-compose.yml`** are parsed for commands.
+- **`[project.scripts]`** is now read from `pyproject.toml`, surfacing CLI
+  entry-points in the generated context (e.g. RepoCanon now sees its own
+  `repocanon` console script).
+- **Real YAML parsing** via `pyyaml` (no longer a phantom dependency) for
+  `pnpm-workspace.yaml`, `docker-compose.yml`, `.pre-commit-config.yaml`.
+- **`.gitignore`-aware file walking**: when the target path is a git repo,
+  RepoCanon walks `git ls-files` instead of raw filesystem globs.
+- **`repocanon list-targets`** to enumerate available generators.
+- **`repocanon clean`** to remove only RepoCanon-authored files (those carrying
+  the generator header marker). Hand-authored files are never touched.
+- **`--json`** mode for `analyze`, `audit`, and `diff`.
+- **CLI multi-target**: `repocanon generate . -t agents -t claude` runs only
+  those targets.
+- **Path-traversal protection** on `--output-dir`.
+- **Friendly recovery** when `.repocanon/project-model.json` is corrupt or
+  written by an older schema (logs a warning and re-analyzes).
+- **Rich progress bar** during `analyze` so very large repos no longer feel
+  hung.
+- **Path-scoped Copilot file** for `migrations/` / `alembic/` directories when
+  present.
+- **Detailed `diff`**: reports which commands and packages were added or
+  removed, instead of a single boolean.
+- **Evidence-weighted `Confidence`**: a finding's `weighted_score` factors in
+  how many corroborating pieces of evidence the analyzer collected.
+- **Repo-grounded Cursor scope rules**: `_scoped_for_directory` emits
+  directory-specific bodies (tests, migrations, configs, docs, scripts,
+  internal/cmd/pkg for Go) instead of generic "mirror your neighbors" filler.
+- **CHANGELOG** (this file).
+
+### Changed
+
+- **CLI argument order flipped**: `path` is now the positional argument
+  (default `.`) and `target` is a repeatable `-t/--target` option. Old
+  invocations (`repocanon generate agents .`) still resolve via fallback,
+  but the new shape is `repocanon generate . -t agents`.
+- **`AGENTS.md` vs `CLAUDE.md`** are structurally distinct now. `CLAUDE.md` is
+  ~1/3 the size and only carries a one-paragraph opener, one canonical command
+  per kind, the rule digest, and the layout. `AGENTS.md` keeps the full
+  operational manual.
+- **`ManifestData`** is a Pydantic `BaseModel` instead of a `dataclass`,
+  matching the rest of the project model.
+- **`Framework.category` and `DirectoryRole.role`** are now `StrEnum`s
+  (`FrameworkCategory`, `RoleKind`) instead of free-form strings.
+- **`ProjectModel.monorepo_packages`** is a list of structured `Package`
+  objects, each with its own commands and frameworks.
+- **`preferred_libraries`** is rendered into AGENTS.md and the Cursor project
+  overview rule (was dead data).
+- **`audit` table** shows the weighted confidence score (`high (1.00)`)
+  alongside the bucket label.
+- **Generated section behavior**: empty sections are omitted entirely; the
+  manual-block placeholder is dropped (only the begin/end markers remain).
+
+### Removed
+
+- Dead helpers: `materialize_files`, `humanize_path_role`, `file_sha256`,
+  `text_sha256`, `stable_hash`.
+- The phantom `existing` parameter on `copilot` / `cursor` generators.
+
+### Tests
+
+- New `tests/test_edge_cases.py` covers: empty repos, malformed manifests,
+  `requirements.txt`-only repos, yarn/uv/Cargo lockfile-driven detection,
+  `publish-test` precedence, `npm start` heuristic, monorepo per-package
+  scripts, Python `__init__` snake_case ratio, TypeScript route lowercase,
+  PascalCase components, ManifestData round-trip.
+- `pytest` no longer collects fixture stub tests
+  (`norecursedirs = tests/fixtures/*`).
+- 47 tests pass; mypy strict and ruff both clean.
+
+## [0.1.3] - 2026-04-17
+
+- Initial publication of GitHub Copilot path-scoped instructions.
+- Improved Go multi-binary detection.
+
+## [0.1.2] - 2026-04-17
+
+- Topology classification fixes for Go `cmd/` projects.
+
+## [0.1.1] - 2026-04-17
+
+- CI matrix and OIDC-based PyPI release workflow.
+
+## [0.1.0] - 2026-04-16
+
+- Initial public release on PyPI.

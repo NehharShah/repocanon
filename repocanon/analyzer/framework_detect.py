@@ -1,8 +1,9 @@
 """Heuristic framework, package manager, and library detection.
 
-These rules are intentionally conservative: missing a framework is preferable
-to confidently asserting one that isn't there. Each detection emits a Finding
-so the audit command can show the rationale.
+Rules are intentionally conservative: missing a framework is preferable to
+confidently asserting one that isn't there. Each detection emits a
+:class:`Finding` so the audit command can show the rationale and so the
+overall confidence aggregator can weight by evidence count.
 """
 
 from __future__ import annotations
@@ -11,132 +12,172 @@ from dataclasses import dataclass
 
 from repocanon.analyzer.config_parse import ManifestData
 from repocanon.models.findings import Confidence, Finding
-from repocanon.models.project import Framework, PackageManager
+from repocanon.models.project import Framework, FrameworkCategory, PackageManager
 
 
-@dataclass
+@dataclass(frozen=True)
 class _Rule:
     """A single dependency-keyed framework signature."""
 
     name: str
-    category: str
+    category: FrameworkCategory
     needles: tuple[str, ...]
 
 
 # Ordered roughly by how strongly the dependency implies the framework.
 PY_RULES: tuple[_Rule, ...] = (
-    _Rule("FastAPI", "web", ("fastapi",)),
-    _Rule("Django", "web", ("django",)),
-    _Rule("Flask", "web", ("flask",)),
-    _Rule("Starlette", "web", ("starlette",)),
-    _Rule("Pydantic", "validation", ("pydantic",)),
-    _Rule("SQLAlchemy", "orm", ("sqlalchemy",)),
-    _Rule("SQLModel", "orm", ("sqlmodel",)),
-    _Rule("Alembic", "migrations", ("alembic",)),
-    _Rule("Celery", "task-queue", ("celery",)),
-    _Rule("pytest", "test", ("pytest",)),
-    _Rule("Typer", "cli", ("typer",)),
-    _Rule("Click", "cli", ("click",)),
-    _Rule("Rich", "ui", ("rich",)),
-    _Rule("Ruff", "lint", ("ruff",)),
-    _Rule("mypy", "typecheck", ("mypy",)),
-    _Rule("Black", "format", ("black",)),
+    _Rule("FastAPI", FrameworkCategory.web, ("fastapi",)),
+    _Rule("Django", FrameworkCategory.web, ("django",)),
+    _Rule("Flask", FrameworkCategory.web, ("flask",)),
+    _Rule("Starlette", FrameworkCategory.web, ("starlette",)),
+    _Rule("Pyramid", FrameworkCategory.web, ("pyramid",)),
+    _Rule("Tornado", FrameworkCategory.web, ("tornado",)),
+    _Rule("Pydantic", FrameworkCategory.validation, ("pydantic",)),
+    _Rule("attrs", FrameworkCategory.validation, ("attrs",)),
+    _Rule("SQLAlchemy", FrameworkCategory.orm, ("sqlalchemy",)),
+    _Rule("SQLModel", FrameworkCategory.orm, ("sqlmodel",)),
+    _Rule("Tortoise ORM", FrameworkCategory.orm, ("tortoise-orm",)),
+    _Rule("Alembic", FrameworkCategory.migrations, ("alembic",)),
+    _Rule("Celery", FrameworkCategory.task_queue, ("celery",)),
+    _Rule("Dramatiq", FrameworkCategory.task_queue, ("dramatiq",)),
+    _Rule("Redis", FrameworkCategory.db, ("redis",)),
+    _Rule("psycopg", FrameworkCategory.db, ("psycopg", "psycopg2", "psycopg2-binary")),
+    _Rule("httpx", FrameworkCategory.runtime, ("httpx",)),
+    _Rule("requests", FrameworkCategory.runtime, ("requests",)),
+    _Rule("pytest", FrameworkCategory.test, ("pytest",)),
+    _Rule("Hypothesis", FrameworkCategory.test, ("hypothesis",)),
+    _Rule("Typer", FrameworkCategory.cli, ("typer",)),
+    _Rule("Click", FrameworkCategory.cli, ("click",)),
+    _Rule("Rich", FrameworkCategory.ui, ("rich",)),
+    _Rule("Ruff", FrameworkCategory.lint, ("ruff",)),
+    _Rule("mypy", FrameworkCategory.typecheck, ("mypy",)),
+    _Rule("pyright", FrameworkCategory.typecheck, ("pyright",)),
+    _Rule("Black", FrameworkCategory.format, ("black",)),
+    _Rule("isort", FrameworkCategory.format, ("isort",)),
 )
 
 JS_RULES: tuple[_Rule, ...] = (
-    _Rule("Next.js", "web", ("next",)),
-    _Rule("React", "frontend", ("react",)),
-    _Rule("Vue", "frontend", ("vue",)),
-    _Rule("Svelte", "frontend", ("svelte",)),
-    _Rule("Angular", "frontend", ("@angular/core",)),
-    _Rule("Express", "web", ("express",)),
-    _Rule("NestJS", "web", ("@nestjs/core",)),
-    _Rule("Fastify", "web", ("fastify",)),
-    _Rule("Remix", "web", ("@remix-run/react",)),
-    _Rule("Vite", "build", ("vite",)),
-    _Rule("Webpack", "build", ("webpack",)),
-    _Rule("Turborepo", "monorepo", ("turbo",)),
-    _Rule("Nx", "monorepo", ("nx",)),
-    _Rule("Jest", "test", ("jest",)),
-    _Rule("Vitest", "test", ("vitest",)),
-    _Rule("Playwright", "test", ("@playwright/test", "playwright")),
-    _Rule("Cypress", "test", ("cypress",)),
-    _Rule("ESLint", "lint", ("eslint",)),
-    _Rule("Prettier", "format", ("prettier",)),
-    _Rule("TypeScript", "language-tooling", ("typescript",)),
-    _Rule("Tailwind CSS", "ui", ("tailwindcss",)),
-    _Rule("Prisma", "orm", ("prisma", "@prisma/client")),
-    _Rule("Drizzle", "orm", ("drizzle-orm",)),
-    _Rule("tRPC", "api", ("@trpc/server",)),
-    _Rule("Zod", "validation", ("zod",)),
+    _Rule("Next.js", FrameworkCategory.web, ("next",)),
+    _Rule("React", FrameworkCategory.frontend, ("react",)),
+    _Rule("Vue", FrameworkCategory.frontend, ("vue",)),
+    _Rule("Svelte", FrameworkCategory.frontend, ("svelte",)),
+    _Rule("Angular", FrameworkCategory.frontend, ("@angular/core",)),
+    _Rule("Solid", FrameworkCategory.frontend, ("solid-js",)),
+    _Rule("Express", FrameworkCategory.web, ("express",)),
+    _Rule("NestJS", FrameworkCategory.web, ("@nestjs/core",)),
+    _Rule("Fastify", FrameworkCategory.web, ("fastify",)),
+    _Rule("Hono", FrameworkCategory.web, ("hono",)),
+    _Rule("Remix", FrameworkCategory.web, ("@remix-run/react",)),
+    _Rule("Astro", FrameworkCategory.web, ("astro",)),
+    _Rule("Vite", FrameworkCategory.build, ("vite",)),
+    _Rule("Webpack", FrameworkCategory.build, ("webpack",)),
+    _Rule("Rollup", FrameworkCategory.build, ("rollup",)),
+    _Rule("esbuild", FrameworkCategory.build, ("esbuild",)),
+    _Rule("Turborepo", FrameworkCategory.monorepo, ("turbo",)),
+    _Rule("Nx", FrameworkCategory.monorepo, ("nx",)),
+    _Rule("Jest", FrameworkCategory.test, ("jest",)),
+    _Rule("Vitest", FrameworkCategory.test, ("vitest",)),
+    _Rule("Playwright", FrameworkCategory.test, ("@playwright/test", "playwright")),
+    _Rule("Cypress", FrameworkCategory.test, ("cypress",)),
+    _Rule("ESLint", FrameworkCategory.lint, ("eslint",)),
+    _Rule("Biome", FrameworkCategory.lint, ("@biomejs/biome",)),
+    _Rule("Prettier", FrameworkCategory.format, ("prettier",)),
+    _Rule("TypeScript", FrameworkCategory.language_tooling, ("typescript",)),
+    _Rule("Tailwind CSS", FrameworkCategory.ui, ("tailwindcss",)),
+    _Rule("Prisma", FrameworkCategory.orm, ("prisma", "@prisma/client")),
+    _Rule("Drizzle", FrameworkCategory.orm, ("drizzle-orm",)),
+    _Rule("tRPC", FrameworkCategory.api, ("@trpc/server",)),
+    _Rule("Zod", FrameworkCategory.validation, ("zod",)),
 )
 
 GO_RULES: tuple[_Rule, ...] = (
-    # web frameworks
-    _Rule("Gin", "web", ("github.com/gin-gonic/gin",)),
-    _Rule("Echo", "web", ("github.com/labstack/echo/v4", "github.com/labstack/echo")),
-    _Rule("Fiber", "web", ("github.com/gofiber/fiber/v2", "github.com/gofiber/fiber")),
-    _Rule("Chi", "web", ("github.com/go-chi/chi/v5", "github.com/go-chi/chi")),
-    _Rule("Gorilla Mux", "web", ("github.com/gorilla/mux",)),
-    # gRPC / protobuf
-    _Rule("gRPC", "rpc", ("google.golang.org/grpc",)),
-    _Rule("Protobuf", "serialization", ("google.golang.org/protobuf",)),
-    # CLI
-    _Rule("Cobra", "cli", ("github.com/spf13/cobra",)),
-    _Rule("Viper", "config", ("github.com/spf13/viper",)),
-    _Rule("urfave/cli", "cli", ("github.com/urfave/cli/v2", "github.com/urfave/cli")),
-    # ORM / DB
-    _Rule("GORM", "orm", ("gorm.io/gorm",)),
-    _Rule("sqlx", "db", ("github.com/jmoiron/sqlx",)),
-    _Rule("ent", "orm", ("entgo.io/ent",)),
-    _Rule("sqlc", "db", ("github.com/sqlc-dev/sqlc", "github.com/kyleconroy/sqlc")),
-    _Rule("pgx", "db", ("github.com/jackc/pgx/v5", "github.com/jackc/pgx/v4", "github.com/jackc/pgx")),
-    # logging / observability
-    _Rule("zap", "logging", ("go.uber.org/zap",)),
-    _Rule("zerolog", "logging", ("github.com/rs/zerolog",)),
-    _Rule("OpenTelemetry", "observability", ("go.opentelemetry.io/otel",)),
-    _Rule("Prometheus client", "observability", ("github.com/prometheus/client_golang",)),
-    # test
-    _Rule("Testify", "test", ("github.com/stretchr/testify",)),
-    _Rule("Ginkgo", "test", ("github.com/onsi/ginkgo/v2", "github.com/onsi/ginkgo")),
-    _Rule("Gomega", "test", ("github.com/onsi/gomega",)),
-    # web3 / blockchain
-    _Rule("go-ethereum", "blockchain", ("github.com/ethereum/go-ethereum",)),
-    _Rule("Cosmos SDK", "blockchain", ("github.com/cosmos/cosmos-sdk",)),
+    _Rule("Gin", FrameworkCategory.web, ("github.com/gin-gonic/gin",)),
+    _Rule("Echo", FrameworkCategory.web, ("github.com/labstack/echo/v4", "github.com/labstack/echo")),
+    _Rule("Fiber", FrameworkCategory.web, ("github.com/gofiber/fiber/v2", "github.com/gofiber/fiber")),
+    _Rule("Chi", FrameworkCategory.web, ("github.com/go-chi/chi/v5", "github.com/go-chi/chi")),
+    _Rule("Gorilla Mux", FrameworkCategory.web, ("github.com/gorilla/mux",)),
+    _Rule("gRPC", FrameworkCategory.rpc, ("google.golang.org/grpc",)),
+    _Rule("Protobuf", FrameworkCategory.serialization, ("google.golang.org/protobuf",)),
+    _Rule("Cobra", FrameworkCategory.cli, ("github.com/spf13/cobra",)),
+    _Rule("Viper", FrameworkCategory.config, ("github.com/spf13/viper",)),
+    _Rule("urfave/cli", FrameworkCategory.cli, ("github.com/urfave/cli/v2", "github.com/urfave/cli")),
+    _Rule("GORM", FrameworkCategory.orm, ("gorm.io/gorm",)),
+    _Rule("sqlx", FrameworkCategory.db, ("github.com/jmoiron/sqlx",)),
+    _Rule("ent", FrameworkCategory.orm, ("entgo.io/ent",)),
+    _Rule("sqlc", FrameworkCategory.db, ("github.com/sqlc-dev/sqlc", "github.com/kyleconroy/sqlc")),
+    _Rule(
+        "pgx",
+        FrameworkCategory.db,
+        ("github.com/jackc/pgx/v5", "github.com/jackc/pgx/v4", "github.com/jackc/pgx"),
+    ),
+    _Rule("zap", FrameworkCategory.logging, ("go.uber.org/zap",)),
+    _Rule("zerolog", FrameworkCategory.logging, ("github.com/rs/zerolog",)),
+    _Rule("OpenTelemetry", FrameworkCategory.observability, ("go.opentelemetry.io/otel",)),
+    _Rule(
+        "Prometheus client",
+        FrameworkCategory.observability,
+        ("github.com/prometheus/client_golang",),
+    ),
+    _Rule("Testify", FrameworkCategory.test, ("github.com/stretchr/testify",)),
+    _Rule("Ginkgo", FrameworkCategory.test, ("github.com/onsi/ginkgo/v2", "github.com/onsi/ginkgo")),
+    _Rule("Gomega", FrameworkCategory.test, ("github.com/onsi/gomega",)),
+    _Rule("go-ethereum", FrameworkCategory.blockchain, ("github.com/ethereum/go-ethereum",)),
+    _Rule("Cosmos SDK", FrameworkCategory.blockchain, ("github.com/cosmos/cosmos-sdk",)),
     _Rule(
         "Tendermint/CometBFT",
-        "blockchain",
+        FrameworkCategory.blockchain,
         ("github.com/cometbft/cometbft", "github.com/tendermint/tendermint"),
     ),
-    # async / messaging
-    _Rule("NATS", "messaging", ("github.com/nats-io/nats.go",)),
-    _Rule("Sarama (Kafka)", "messaging", ("github.com/IBM/sarama", "github.com/Shopify/sarama")),
-    _Rule("Asynq", "task-queue", ("github.com/hibiken/asynq",)),
+    _Rule("NATS", FrameworkCategory.messaging, ("github.com/nats-io/nats.go",)),
+    _Rule(
+        "Sarama (Kafka)",
+        FrameworkCategory.messaging,
+        ("github.com/IBM/sarama", "github.com/Shopify/sarama"),
+    ),
+    _Rule("Asynq", FrameworkCategory.task_queue, ("github.com/hibiken/asynq",)),
 )
 
 RUST_RULES: tuple[_Rule, ...] = (
-    _Rule("Axum", "web", ("axum",)),
-    _Rule("Actix", "web", ("actix-web",)),
-    _Rule("Rocket", "web", ("rocket",)),
-    _Rule("Tokio", "runtime", ("tokio",)),
-    _Rule("Serde", "serialization", ("serde",)),
-    _Rule("Clap", "cli", ("clap",)),
+    _Rule("Axum", FrameworkCategory.web, ("axum",)),
+    _Rule("Actix", FrameworkCategory.web, ("actix-web",)),
+    _Rule("Rocket", FrameworkCategory.web, ("rocket",)),
+    _Rule("Tokio", FrameworkCategory.runtime, ("tokio",)),
+    _Rule("Serde", FrameworkCategory.serialization, ("serde",)),
+    _Rule("Clap", FrameworkCategory.cli, ("clap",)),
 )
 
 
+# Frameworks that are also tools that *must* be configured (not just installed)
+# to actually shape the repo. We promote them to "high" only when there's a
+# corresponding [tool.x] table or config file.
+_NEEDS_CONFIG: frozenset[str] = frozenset({"Ruff", "mypy", "pyright", "Black", "isort"})
+
+
 def _apply_rules(
-    rules: tuple[_Rule, ...], deps: set[str], evidence_path: str
+    rules: tuple[_Rule, ...],
+    deps: set[str],
+    evidence_path: str,
+    declared_tools: set[str],
 ) -> list[Framework]:
     found: list[Framework] = []
     for rule in rules:
         for needle in rule.needles:
             if needle.lower() in deps:
+                # Default to medium for a single dependency match; bumped to
+                # high downstream when at least one extra signal corroborates
+                # it (multiple needles, configured tool, etc.).
+                tool_key = rule.name.lower()
+                base_conf = (
+                    Confidence.high
+                    if rule.name not in _NEEDS_CONFIG
+                    else (Confidence.high if tool_key in declared_tools else Confidence.medium)
+                )
                 found.append(
                     Framework(
                         name=rule.name,
                         category=rule.category,
                         evidence=[f"{evidence_path}: {needle}"],
-                        confidence=Confidence.high,
+                        confidence=base_conf,
                     )
                 )
                 break
@@ -151,7 +192,13 @@ def detect_frameworks(
 
     for m in manifests:
         deps = {d.lower() for d in (*m.dependencies, *m.dev_dependencies)}
-        if m.kind == "pyproject":
+        declared = {t.lower() for t in m.declared_tools}
+        if m.kind == "pyproject" or m.kind in {
+            "requirements.txt",
+            "setup.cfg",
+            "setup.py",
+            "Pipfile",
+        }:
             rules = PY_RULES
         elif m.kind == "package.json":
             rules = JS_RULES
@@ -161,12 +208,14 @@ def detect_frameworks(
             rules = GO_RULES
         else:
             continue
-        for fw in _apply_rules(rules, deps, m.path):
+        for fw in _apply_rules(rules, deps, m.path, declared):
             existing = frameworks.get(fw.name)
             if existing is None:
                 frameworks[fw.name] = fw
             else:
                 existing.evidence.extend(e for e in fw.evidence if e not in existing.evidence)
+                if fw.confidence is Confidence.high:
+                    existing.confidence = Confidence.high
             findings.append(
                 Finding(
                     kind="framework",
@@ -174,6 +223,32 @@ def detect_frameworks(
                     rationale=f"Dependency match in {m.path}.",
                     evidence=fw.evidence,
                     confidence=fw.confidence,
+                )
+            )
+
+    # Promote frameworks with multiple corroborating evidence pieces to high.
+    for fw in frameworks.values():
+        if len(fw.evidence) >= 2 and fw.confidence is Confidence.medium:
+            fw.confidence = Confidence.high
+
+    # Detect containerization signals from Dockerfile / docker-compose.
+    docker_files = [m for m in manifests if m.kind in {"Dockerfile", "docker-compose"}]
+    if docker_files:
+        evidence = [m.path for m in docker_files]
+        if "Docker" not in frameworks:
+            frameworks["Docker"] = Framework(
+                name="Docker",
+                category=FrameworkCategory.container,
+                evidence=evidence,
+                confidence=Confidence.high if len(docker_files) >= 2 else Confidence.medium,
+            )
+            findings.append(
+                Finding(
+                    kind="framework",
+                    subject="Docker",
+                    rationale="Dockerfile / docker-compose detected.",
+                    evidence=evidence,
+                    confidence=frameworks["Docker"].confidence,
                 )
             )
 
@@ -193,6 +268,8 @@ def detect_package_managers(
                 name = "poetry"
             elif "uv.lock" in file_names:
                 name = "uv"
+            elif "Pipfile.lock" in file_names:
+                name = "pipenv"
             else:
                 name = "pip"
             pms.append(PackageManager(name=name, manifest=m.path, confidence=Confidence.high))
@@ -206,20 +283,32 @@ def detect_package_managers(
                 )
             )
         elif m.kind == "package.json":
-            if "pnpm-lock.yaml" in file_names:
+            # Authoritative `packageManager` field beats lockfile heuristics.
+            if m.package_manager_hint in {"npm", "pnpm", "yarn", "bun"}:
+                assert m.package_manager_hint is not None
+                name = m.package_manager_hint
+                rationale = f"`packageManager` field in {m.path}."
+            elif "pnpm-lock.yaml" in file_names:
                 name = "pnpm"
+                rationale = "pnpm-lock.yaml present."
             elif "yarn.lock" in file_names:
                 name = "yarn"
-            elif "bun.lockb" in file_names:
+                rationale = "yarn.lock present."
+            elif "bun.lockb" in file_names or "bun.lock" in file_names:
                 name = "bun"
+                rationale = "bun lockfile present."
+            elif "package-lock.json" in file_names:
+                name = "npm"
+                rationale = "package-lock.json present."
             else:
                 name = "npm"
+                rationale = "Defaulted to npm; no lockfile or packageManager field."
             pms.append(PackageManager(name=name, manifest=m.path, confidence=Confidence.high))
             findings.append(
                 Finding(
                     kind="package-manager",
                     subject=name,
-                    rationale=f"Detected from {m.path} and lockfile.",
+                    rationale=rationale,
                     evidence=[m.path],
                     confidence=Confidence.high,
                 )
@@ -246,6 +335,31 @@ def detect_package_managers(
                     confidence=Confidence.high,
                 )
             )
+        elif m.kind in {"requirements.txt", "setup.cfg", "setup.py"}:
+            # Only emit when no pyproject already established the manager.
+            if not any(pm.name in {"pip", "uv", "poetry", "pipenv"} for pm in pms):
+                pms.append(PackageManager(name="pip", manifest=m.path))
+                findings.append(
+                    Finding(
+                        kind="package-manager",
+                        subject="pip",
+                        rationale=f"{m.kind} present without pyproject.",
+                        evidence=[m.path],
+                        confidence=Confidence.medium,
+                    )
+                )
+        elif m.kind == "Pipfile":
+            if not any(pm.name == "pipenv" for pm in pms):
+                pms.append(PackageManager(name="pipenv", manifest=m.path))
+                findings.append(
+                    Finding(
+                        kind="package-manager",
+                        subject="pipenv",
+                        rationale="Pipfile present.",
+                        evidence=[m.path],
+                        confidence=Confidence.high,
+                    )
+                )
 
     # Dedup on (name, manifest); keep stable order.
     seen: set[tuple[str, str]] = set()

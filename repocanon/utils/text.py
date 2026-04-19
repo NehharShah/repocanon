@@ -37,7 +37,3 @@ def truncate(text: str, limit: int = 240) -> str:
     if len(text) <= limit:
         return text
     return text[: limit - 1].rstrip() + "…"
-
-
-def humanize_path_role(role: str) -> str:
-    return role.replace("_", " ").strip().capitalize()

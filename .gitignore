@@ -37,6 +37,10 @@ Thumbs.db
 # .repocanon/config.toml IS committed; only the regenerated model is local.
 .repocanon/project-model.json
 
+# --- Local scratch / experimentation directories ---
+/scratch*/
+/tmp/
+
 # --- Secrets (defense in depth; never commit env files) ---
 .env
 .env.*

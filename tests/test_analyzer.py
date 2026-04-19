@@ -62,10 +62,10 @@ def test_monorepo_inference(monorepo_repo: Path) -> None:
     model = analyze_repo(monorepo_repo, RepoCanonConfig())
 
     assert model.topology is TopologyKind.monorepo
-    package_set = set(model.monorepo_packages)
-    assert "apps/web" in package_set
-    assert "packages/ui" in package_set
-    assert "packages/utils" in package_set
+    package_paths = {p.path for p in model.monorepo_packages}
+    assert "apps/web" in package_paths
+    assert "packages/ui" in package_paths
+    assert "packages/utils" in package_paths
 
     pms = {pm.name for pm in model.package_managers}
     assert "pnpm" in pms
@@ -89,7 +89,7 @@ def test_go_multi_binary_inference(go_repo: Path) -> None:
     assert model.topology is TopologyKind.multi_binary, (
         f"expected multi_binary, got {model.topology}"
     )
-    assert sorted(model.monorepo_packages) == ["cmd/api", "cmd/worker"]
+    assert sorted(p.path for p in model.monorepo_packages) == ["cmd/api", "cmd/worker"]
 
     # Patch B: cmd/, internal/, pkg/ should all surface as recognized roles.
     dir_paths = {d.path: d.role for d in model.key_directories}

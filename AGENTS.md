@@ -35,7 +35,6 @@
 - **Test**
   - `pytest`
   - `make test`
-  - `make publish-test`
 - **Lint**
   - `ruff check .`
   - `make lint`
@@ -45,22 +44,32 @@
 - **Typecheck**
   - `mypy .`
   - `make typecheck`
+- **Other entry-points**
+  - `repocanon`
 - **Other make**
   - `install`
   - `clean`
-  - `publish`
   - `demo`
+- **Other release**
+  - `make publish-test`
+  - `make publish`
 
 ## Repository layout
 
 - `scripts/` — scripts
 - `tests/` — tests
+- `repocanon/` — source
 
 ## Conventions
 
 - **Python lint/format**: Ruff
 - **Python type checking**: mypy
+- **CI**: GitHub Actions
 - **Python file naming**: snake_case modules
+
+## Preferred libraries
+
+`pydantic`, `pyyaml`, `rich`, `typer`, `build`, `mypy`, `pytest`, `pytest-cov`, `ruff`, `twine`, `types-pyyaml`.
 
 ## Validation expectations
 
@@ -69,5 +78,5 @@ Run lint, typecheck, and tests before claiming a change is complete. If any tool
 ## Manual notes
 
 <!-- repocanon:manual:begin -->
-_Add notes that should survive regeneration here._
+
 <!-- repocanon:manual:end -->

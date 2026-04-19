@@ -30,7 +30,7 @@ def print_summary(model: ProjectModel) -> None:
         t.add_column("Category")
         t.add_column("Confidence")
         for fw in model.frameworks[:12]:
-            t.add_row(fw.name, fw.category, fw.confidence.value)
+            t.add_row(fw.name, fw.category.value, fw.confidence.value)
         console.print(t)
 
     if model.commands and not model.commands.is_empty():
@@ -50,11 +50,20 @@ def print_summary(model: ProjectModel) -> None:
                 t.add_row(label, cmd)
         console.print(t)
 
+    if model.monorepo_packages:
+        t = Table(title="Packages", show_header=True, header_style="title")
+        t.add_column("Path")
+        t.add_column("Name")
+        t.add_column("Manager")
+        for p in model.monorepo_packages[:12]:
+            t.add_row(p.path, p.name, p.package_manager or "—")
+        console.print(t)
+
     if model.key_directories:
         t = Table(title="Key directories", show_header=True, header_style="title")
         t.add_column("Path")
         t.add_column("Role")
-        for d in model.key_directories[:12]:
+        for d in model.key_directories[:14]:
             t.add_row(f"{d.path}/", d.role)
         console.print(t)
 

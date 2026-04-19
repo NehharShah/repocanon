@@ -47,7 +47,7 @@
 ## Repository layout
 
 - `alembic/` — database migrations
-- `app/` — application
+- `app/` — application source
 - `tests/` — tests
 
 ## Conventions
@@ -59,6 +59,10 @@
 ## Architecture boundaries
 
 - **database migrations are append-only** — Existing migration files should not be edited; create a new revision instead.
+
+## Preferred libraries
+
+`alembic`, `fastapi`, `pydantic`, `sqlalchemy`, `uvicorn`, `mypy`, `pytest`, `ruff`.
 
 ## Avoid
 
@@ -75,5 +79,5 @@ Run lint, typecheck, and tests before claiming a change is complete. If any tool
 ## Manual notes
 
 <!-- repocanon:manual:begin -->
-_Add notes that should survive regeneration here._
+
 <!-- repocanon:manual:end -->

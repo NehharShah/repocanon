@@ -9,7 +9,7 @@ for fx in tests/fixtures/*/; do
   echo "================================================================"
   echo "  $fx"
   echo "================================================================"
-  python -m repocanon analyze "$fx" --quiet
+  python -m repocanon analyze "$fx"
   python -m repocanon audit "$fx"
-  python -m repocanon preview agents "$fx"
+  python -m repocanon preview "$fx" -t agents
 done

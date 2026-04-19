@@ -31,9 +31,4 @@
 ## Conventions to follow
 
 - **JS/TS language**: TypeScript-first
-- **TypeScript file naming**: camelCase modules
 - **Next.js routing**: App Router under app/
-
-## When unsure
-
-Prefer asking a clarifying question over inventing repo-specific behavior. Mirror existing patterns from neighboring files instead of introducing new ones.

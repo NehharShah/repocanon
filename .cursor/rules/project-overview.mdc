@@ -31,3 +31,8 @@ alwaysApply: true
 
 - `scripts/` — scripts
 - `tests/` — tests
+- `repocanon/` — source
+
+## Preferred libraries
+
+`pydantic`, `pyyaml`, `rich`, `typer`, `build`, `mypy`, `pytest`, `pytest-cov`, `ruff`, `twine`, `types-pyyaml`.

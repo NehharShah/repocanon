@@ -30,10 +30,15 @@ def print_audit(model: ProjectModel) -> None:
         t.add_column("Confidence")
         for f in by_kind[kind]:
             color = _CONFIDENCE_COLOR.get(f.confidence, "info")
+            label = (
+                f"{f.confidence.value} ({f.weighted_score:.2f})"
+                if f.evidence
+                else f.confidence.value
+            )
             t.add_row(
                 f.subject,
                 truncate(f.rationale, 200),
-                f"[{color}]{f.confidence.value}[/{color}]",
+                f"[{color}]{label}[/{color}]",
             )
         console.print(t)
 

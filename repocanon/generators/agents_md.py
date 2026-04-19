@@ -1,4 +1,11 @@
-"""Generate AGENTS.md (Codex-style operational instructions)."""
+"""Generate AGENTS.md (Codex-style operational instructions).
+
+AGENTS.md is the verbose "how to operate this repo as a contributor" doc:
+full command lists, every framework, all conventions, every boundary, and
+the uncertainty notes that should make agents pause. CLAUDE.md is a
+deliberately-terser cousin used as persistent memory; the two should look
+materially different on disk.
+"""
 
 from __future__ import annotations
 
@@ -13,7 +20,7 @@ from repocanon.models.project import ProjectModel
 from repocanon.utils.text import join_sections
 
 
-def generate_agents(model: ProjectModel, existing: str = "") -> GenerationPlan:
+def generate_agents(model: ProjectModel) -> GenerationPlan:
     title = f"# {model.repo_name} — AGENTS.md"
 
     sections = [
@@ -26,7 +33,7 @@ def generate_agents(model: ProjectModel, existing: str = "") -> GenerationPlan:
             "If any tool is undefined for this repo, say so explicitly rather than skipping it.",
             level=2,
         ),
-        section("Manual notes", manual_block(existing), level=2),
+        section("Manual notes", manual_block(), level=2),
     ]
 
     content = join_sections(sections)
