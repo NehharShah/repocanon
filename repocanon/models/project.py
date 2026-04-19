@@ -85,6 +85,7 @@ class TopologyKind(StrEnum):
     single_package = "single_package"
     monorepo = "monorepo"
     multi_root = "multi_root"
+    multi_binary = "multi_binary"
     unknown = "unknown"
 
 

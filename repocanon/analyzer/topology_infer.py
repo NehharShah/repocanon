@@ -51,6 +51,7 @@ _ROLE_HINTS: dict[str, str] = {
     "db": "database",
     "infra": "infrastructure",
     "deploy": "deployment",
+    "deployments": "deployment",
     "ops": "operations",
     "config": "configuration",
     "configs": "configuration",
@@ -58,6 +59,10 @@ _ROLE_HINTS: dict[str, str] = {
     "static": "static assets",
     "assets": "static assets",
     "fixtures": "test fixtures",
+    # Go-idiomatic layout (https://go.dev/doc/modules/layout)
+    "cmd": "binary entry points (Go cmd/)",
+    "internal": "internal-only Go packages (not importable externally)",
+    "pkg": "publicly importable Go packages",
 }
 
 
@@ -72,6 +77,7 @@ def infer_topology(
 ) -> tuple[TopologyKind, list[str], list[DirectoryRole], list[ArchitectureBoundary], list[Finding]]:
     findings: list[Finding] = []
 
+    rel_paths = list(rel_paths)
     top_dirs = _top_level_dirs(rel_paths)
 
     monorepo_packages: list[str] = []
@@ -96,6 +102,23 @@ def infer_topology(
     if has_apps_or_packages:
         monorepo_signals.append("apps/packages/libs/services directories present")
 
+    # Go multi-binary detection: cmd/<name>/main.go (or any .go file) for ≥2 names.
+    # Treated as multi_binary even when there's a single root go.mod, because each
+    # cmd/<name> is a separately-built program with its own entry point.
+    go_binaries: list[str] = []
+    if "cmd" in top_dirs:
+        cmd_subdirs: dict[str, bool] = {}
+        for rel in rel_paths:
+            parts = rel.split("/")
+            if len(parts) >= 3 and parts[0] == "cmd" and parts[-1].endswith(".go"):
+                cmd_subdirs.setdefault(parts[1], False)
+                if parts[-1] == "main.go":
+                    cmd_subdirs[parts[1]] = True
+        # require an actual main.go to count it as a binary
+        go_binaries = sorted(name for name, has_main in cmd_subdirs.items() if has_main)
+
+    has_go_module = any(m.kind == "go.mod" for m in manifests)
+
     if monorepo_packages or monorepo_signals:
         topology = TopologyKind.monorepo
         findings.append(
@@ -105,6 +128,22 @@ def infer_topology(
                 rationale="; ".join(monorepo_signals or ["multiple manifests under subdirectories"]),
                 evidence=monorepo_packages or sorted(top_dirs),
                 confidence=Confidence.high if monorepo_signals else Confidence.medium,
+            )
+        )
+    elif has_go_module and len(go_binaries) >= 2:
+        topology = TopologyKind.multi_binary
+        # Surface each binary as a "package" so generators can list them.
+        monorepo_packages = [f"cmd/{name}" for name in go_binaries]
+        findings.append(
+            Finding(
+                kind="topology",
+                subject="multi_binary",
+                rationale=(
+                    f"Go module with {len(go_binaries)} binaries under cmd/: "
+                    f"{', '.join(go_binaries)}."
+                ),
+                evidence=[f"cmd/{name}/main.go" for name in go_binaries],
+                confidence=Confidence.high,
             )
         )
     elif manifests:
@@ -189,6 +228,28 @@ def _infer_boundaries(
                     "dependencies and should not reach into another package's internals."
                 ),
                 confidence=Confidence.medium,
+            )
+        )
+    if topology is TopologyKind.multi_binary and packages:
+        out.append(
+            ArchitectureBoundary(
+                name="binary isolation",
+                description=(
+                    "Each cmd/<binary> directory is a separate program. Shared code belongs "
+                    "in internal/ or pkg/, not in another binary's directory."
+                ),
+                confidence=Confidence.high,
+            )
+        )
+    if "internal" in top_dirs:
+        out.append(
+            ArchitectureBoundary(
+                name="Go internal/ visibility",
+                description=(
+                    "Packages under internal/ are only importable from this module. "
+                    "Treat them as private API; do not promote to pkg/ casually."
+                ),
+                confidence=Confidence.high,
             )
         )
     if "migrations" in top_dirs or "alembic" in top_dirs:

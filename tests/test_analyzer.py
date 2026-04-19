@@ -75,3 +75,55 @@ def test_monorepo_inference(monorepo_repo: Path) -> None:
     assert "Turborepo" in fws
 
     assert any(b.name == "package isolation" for b in model.architecture_boundaries)
+
+
+def test_go_multi_binary_inference(go_repo: Path) -> None:
+    """Patch B + C: Go cmd/<bin>/main.go fan-out + go.mod block-form parsing + GO_RULES."""
+    model = analyze_repo(go_repo, RepoCanonConfig())
+
+    assert model.repo_name == "github.com/example/go-app"
+    assert model.primary_language() == "Go"
+
+    # Patch B: topology should be multi_binary, not single_package, even though
+    # there's a single root go.mod.
+    assert model.topology is TopologyKind.multi_binary, (
+        f"expected multi_binary, got {model.topology}"
+    )
+    assert sorted(model.monorepo_packages) == ["cmd/api", "cmd/worker"]
+
+    # Patch B: cmd/, internal/, pkg/ should all surface as recognized roles.
+    dir_paths = {d.path: d.role for d in model.key_directories}
+    assert "cmd" in dir_paths
+    assert "internal" in dir_paths
+    assert "pkg" in dir_paths
+    assert "Go" in dir_paths["cmd"] or "binary" in dir_paths["cmd"]
+    assert "internal" in dir_paths["internal"].lower()
+
+    # Patch B: binary-isolation + Go internal-visibility boundaries.
+    boundary_names = {b.name for b in model.architecture_boundaries}
+    assert "binary isolation" in boundary_names
+    assert "Go internal/ visibility" in boundary_names
+
+    # Patch C: block-form `require ( ... )` parsed correctly.
+    fws = _names(model.frameworks)
+    assert "Gin" in fws
+    assert "Cobra" in fws
+    assert "Viper" in fws
+    assert "GORM" in fws
+    assert "sqlx" in fws
+    assert "go-ethereum" in fws
+    assert "Testify" in fws
+    assert "zap" in fws
+
+    # Make targets discovered.
+    assert any("go build" in c or "make build" in c for c in model.commands.build)
+    assert any("go test" in c or "make test" in c for c in model.commands.test)
+
+
+def test_go_repo_does_not_infer_javascript_naming_convention(go_repo: Path) -> None:
+    """Patch A: a Go-only repo must not surface a TS/JS naming convention."""
+    model = analyze_repo(go_repo, RepoCanonConfig())
+
+    convention_names = {c.name for c in model.naming_conventions}
+    assert "TypeScript file naming" not in convention_names
+    assert "Python file naming" not in convention_names

@@ -102,6 +102,30 @@ def _path_scoped(model: ProjectModel) -> list[GeneratedFile]:
             )
         )
 
+    if model.topology is TopologyKind.multi_binary and "internal" in dir_paths:
+        out.append(
+            GeneratedFile(
+                path=".github/instructions/internal.instructions.md",
+                content=join_sections(
+                    [
+                        "---",
+                        'applyTo: "internal/**"',
+                        "---",
+                        header("copilot"),
+                        section(
+                            "Go internal/ visibility",
+                            "Code under internal/ is private to this module — Go enforces it at "
+                            "compile time. Treat it as private API: callers under cmd/ and within "
+                            "internal/ are fine, but never import from another module.",
+                            level=2,
+                        ),
+                    ]
+                ),
+                target="copilot",
+                description="Path-scoped instructions for internal/.",
+            )
+        )
+
     return out
 
 

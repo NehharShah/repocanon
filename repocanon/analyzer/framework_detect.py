@@ -72,10 +72,46 @@ JS_RULES: tuple[_Rule, ...] = (
 )
 
 GO_RULES: tuple[_Rule, ...] = (
+    # web frameworks
     _Rule("Gin", "web", ("github.com/gin-gonic/gin",)),
-    _Rule("Echo", "web", ("github.com/labstack/echo/v4",)),
-    _Rule("Fiber", "web", ("github.com/gofiber/fiber/v2",)),
+    _Rule("Echo", "web", ("github.com/labstack/echo/v4", "github.com/labstack/echo")),
+    _Rule("Fiber", "web", ("github.com/gofiber/fiber/v2", "github.com/gofiber/fiber")),
+    _Rule("Chi", "web", ("github.com/go-chi/chi/v5", "github.com/go-chi/chi")),
+    _Rule("Gorilla Mux", "web", ("github.com/gorilla/mux",)),
+    # gRPC / protobuf
+    _Rule("gRPC", "rpc", ("google.golang.org/grpc",)),
+    _Rule("Protobuf", "serialization", ("google.golang.org/protobuf",)),
+    # CLI
     _Rule("Cobra", "cli", ("github.com/spf13/cobra",)),
+    _Rule("Viper", "config", ("github.com/spf13/viper",)),
+    _Rule("urfave/cli", "cli", ("github.com/urfave/cli/v2", "github.com/urfave/cli")),
+    # ORM / DB
+    _Rule("GORM", "orm", ("gorm.io/gorm",)),
+    _Rule("sqlx", "db", ("github.com/jmoiron/sqlx",)),
+    _Rule("ent", "orm", ("entgo.io/ent",)),
+    _Rule("sqlc", "db", ("github.com/sqlc-dev/sqlc", "github.com/kyleconroy/sqlc")),
+    _Rule("pgx", "db", ("github.com/jackc/pgx/v5", "github.com/jackc/pgx/v4", "github.com/jackc/pgx")),
+    # logging / observability
+    _Rule("zap", "logging", ("go.uber.org/zap",)),
+    _Rule("zerolog", "logging", ("github.com/rs/zerolog",)),
+    _Rule("OpenTelemetry", "observability", ("go.opentelemetry.io/otel",)),
+    _Rule("Prometheus client", "observability", ("github.com/prometheus/client_golang",)),
+    # test
+    _Rule("Testify", "test", ("github.com/stretchr/testify",)),
+    _Rule("Ginkgo", "test", ("github.com/onsi/ginkgo/v2", "github.com/onsi/ginkgo")),
+    _Rule("Gomega", "test", ("github.com/onsi/gomega",)),
+    # web3 / blockchain
+    _Rule("go-ethereum", "blockchain", ("github.com/ethereum/go-ethereum",)),
+    _Rule("Cosmos SDK", "blockchain", ("github.com/cosmos/cosmos-sdk",)),
+    _Rule(
+        "Tendermint/CometBFT",
+        "blockchain",
+        ("github.com/cometbft/cometbft", "github.com/tendermint/tendermint"),
+    ),
+    # async / messaging
+    _Rule("NATS", "messaging", ("github.com/nats-io/nats.go",)),
+    _Rule("Sarama (Kafka)", "messaging", ("github.com/IBM/sarama", "github.com/Shopify/sarama")),
+    _Rule("Asynq", "task-queue", ("github.com/hibiken/asynq",)),
 )
 
 RUST_RULES: tuple[_Rule, ...] = (

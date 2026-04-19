@@ -22,3 +22,8 @@ def nextjs_repo() -> Path:
 @pytest.fixture(scope="session")
 def monorepo_repo() -> Path:
     return FIXTURES_ROOT / "monorepo"
+
+
+@pytest.fixture(scope="session")
+def go_repo() -> Path:
+    return FIXTURES_ROOT / "go_app"

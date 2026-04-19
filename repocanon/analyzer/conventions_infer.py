@@ -9,6 +9,8 @@ from repocanon.analyzer.config_parse import ManifestData
 from repocanon.models.findings import Confidence, Finding
 from repocanon.models.project import Convention, Framework, TestLayout
 
+MIN_FILES_FOR_NAMING_CONVENTION = 5
+
 
 def infer_test_layout(rel_paths: Iterable[str]) -> tuple[TestLayout, Finding]:
     centralized = 0
@@ -76,7 +78,7 @@ def infer_naming_conventions(
     out: list[Convention] = []
     paths = list(rel_paths)
     py_files = [p for p in paths if p.endswith(".py")]
-    if py_files:
+    if len(py_files) >= MIN_FILES_FOR_NAMING_CONVENTION:
         snake = sum(1 for p in py_files if "-" not in Path(p).stem and Path(p).stem.islower())
         ratio = snake / len(py_files)
         if ratio > 0.85:
@@ -90,7 +92,7 @@ def infer_naming_conventions(
             )
 
     ts_files = [p for p in paths if p.endswith((".ts", ".tsx", ".js", ".jsx"))]
-    if ts_files:
+    if len(ts_files) >= MIN_FILES_FOR_NAMING_CONVENTION:
         kebab = sum(1 for p in ts_files if "-" in Path(p).stem)
         camel = sum(
             1

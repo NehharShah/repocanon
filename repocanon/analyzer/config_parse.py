@@ -133,12 +133,31 @@ def _parse_go_mod(path: Path) -> ManifestData | None:
         return None
     name: str | None = None
     deps: list[str] = []
-    for line in text.splitlines():
-        s = line.strip()
-        if s.startswith("module "):
-            name = s.split(" ", 1)[1].strip()
-        elif s.startswith("require "):
-            tail = s[len("require ") :].strip()
+    in_require_block = False
+    for raw_line in text.splitlines():
+        # Strip inline comments and surrounding whitespace.
+        line = raw_line.split("//", 1)[0].strip()
+        if not line:
+            continue
+        if line.startswith("module "):
+            name = line.split(" ", 1)[1].strip().strip('"')
+            continue
+        if in_require_block:
+            if line.startswith(")"):
+                in_require_block = False
+                continue
+            # Lines inside `require (` look like:
+            #   github.com/gin-gonic/gin v1.9.1
+            #   github.com/foo/bar v1.0.0 // indirect
+            token = line.split()[0] if line.split() else ""
+            if token and not token.startswith(")"):
+                deps.append(token)
+            continue
+        if line.startswith("require ("):
+            in_require_block = True
+            continue
+        if line.startswith("require "):
+            tail = line[len("require ") :].strip()
             if tail and not tail.startswith("("):
                 token = tail.split(" ", 1)[0]
                 if token:
