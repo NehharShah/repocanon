@@ -255,7 +255,15 @@ def generate(
             except ValueError:
                 rel = r.path
             prefix = "would " if dry_run else ""
-            ok(f"{prefix}{r.action}: {rel} ({r.bytes_written} bytes)")
+            line = f"{prefix}{r.action}: {rel} ({r.bytes_written} bytes)"
+            if r.action == "appended":
+                warn(
+                    f"{line} — existing user-authored file detected; "
+                    "RepoCanon content was placed in a managed section at the bottom. "
+                    "Use --force to overwrite instead."
+                )
+            else:
+                ok(line)
 
 
 @app.command()
